@@ -13,9 +13,15 @@ window.addEventListener("keydown", (e) => {
   justPressed[e.code] = !keys[e.code];
   keys[e.code] = true;
   if (
-    ["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(
-      e.code,
-    )
+    [
+      "Space",
+      "KeyC",
+      "KeyS",
+      "ArrowUp",
+      "ArrowDown",
+      "ArrowLeft",
+      "ArrowRight",
+    ].includes(e.code)
   )
     e.preventDefault();
 });
@@ -27,6 +33,10 @@ function pressed(code) {
   const val = justPressed[code];
   justPressed[code] = false;
   return val;
+}
+
+function consumePressed(code) {
+  justPressed[code] = false;
 }
 
 // ── Utils ─────────────────────────────────────────────────────────────────────
@@ -132,6 +142,13 @@ const SHOOTING_STAR_RADIUS = 14;
 const SHOOTING_STAR_POINTS = 200;
 const SHOOTING_STAR_MIN_SPAWN = 8;
 const SHOOTING_STAR_MAX_SPAWN = 15;
+const TRIPLE_SHOT_DURATION = 5;
+const TRIPLE_SHOT_SPREAD = Math.PI / 6;
+const SHIELD_COST = 1000;
+const SHIELD_DURATION = 45;
+const SHIELD_INVINCIBLE_TIME = 0.45;
+const SHIELD_MESSAGE_TIME = 1.4;
+const SHIELD_COLOR_TRANSITION_TIME = 2;
 
 class ShootingStar {
   constructor() {
@@ -250,6 +267,79 @@ class SpeedPowerUp {
 }
 
 // ── Ship ──────────────────────────────────────────────────────────────────────
+const SHIP_SKINS = [
+  {
+    name: "CLASICA",
+    stroke: "#fff",
+    fill: null,
+    flame: "rgba(255, 130, 0, 0.85)",
+    points: [[20, 0], [-12, -9], [-7, 0], [-12, 9]],
+    details: [],
+  },
+  {
+    name: "DELTA",
+    stroke: "#38d9ff",
+    fill: "rgba(56, 217, 255, 0.12)",
+    flame: "rgba(120, 220, 255, 0.9)",
+    points: [[22, 0], [-10, -12], [-4, 0], [-10, 12]],
+    details: [[4, -4, -8, -8], [4, 4, -8, 8]],
+  },
+  {
+    name: "VIBORA",
+    stroke: "#b2ff59",
+    fill: "rgba(178, 255, 89, 0.1)",
+    flame: "rgba(255, 214, 80, 0.9)",
+    points: [[21, 0], [-3, -8], [-15, -5], [-8, 0], [-15, 5], [-3, 8]],
+    details: [[8, 0, -6, 0], [-3, -8, -8, 0], [-3, 8, -8, 0]],
+  },
+];
+
+let selectedShipSkinIndex = 0;
+
+function getSelectedShipSkin() {
+  return SHIP_SKINS[selectedShipSkinIndex];
+}
+
+function cycleShipSkin() {
+  selectedShipSkinIndex = (selectedShipSkinIndex + 1) % SHIP_SKINS.length;
+}
+
+function drawShipShape(skin, thrusting = false, scale = 1) {
+  ctx.save();
+  ctx.scale(scale, scale);
+  ctx.strokeStyle = skin.stroke;
+  ctx.fillStyle = skin.fill || "transparent";
+  ctx.lineWidth = 1.5;
+  ctx.lineJoin = "round";
+
+  ctx.beginPath();
+  ctx.moveTo(skin.points[0][0], skin.points[0][1]);
+  for (let i = 1; i < skin.points.length; i++) {
+    ctx.lineTo(skin.points[i][0], skin.points[i][1]);
+  }
+  ctx.closePath();
+  if (skin.fill) ctx.fill();
+  ctx.stroke();
+
+  for (const line of skin.details) {
+    ctx.beginPath();
+    ctx.moveTo(line[0], line[1]);
+    ctx.lineTo(line[2], line[3]);
+    ctx.stroke();
+  }
+
+  if (thrusting && Math.random() > 0.35) {
+    ctx.beginPath();
+    ctx.moveTo(-8, -4);
+    ctx.lineTo(-8 - rand(6, 14), 0);
+    ctx.lineTo(-8, 4);
+    ctx.strokeStyle = skin.flame;
+    ctx.stroke();
+  }
+
+  ctx.restore();
+}
+
 class Ship {
   constructor() {
     this.reset();
@@ -298,7 +388,13 @@ class Ship {
     const NOSE = 21;
     const ox = this.x + Math.cos(this.angle) * NOSE;
     const oy = this.y + Math.sin(this.angle) * NOSE;
-    return [new Bullet(ox, oy, this.angle)];
+    if (tripleShotTimer <= 0) return [new Bullet(ox, oy, this.angle)];
+
+    return [
+      new Bullet(ox, oy, this.angle - TRIPLE_SHOT_SPREAD),
+      new Bullet(ox, oy, this.angle),
+      new Bullet(ox, oy, this.angle + TRIPLE_SHOT_SPREAD),
+    ];
   }
 
   draw() {
@@ -310,31 +406,45 @@ class Ship {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
-    ctx.strokeStyle = "#fff";
-    ctx.lineWidth = 1.5;
-    ctx.lineJoin = "round";
-
-    // Silueta clásica: triángulo con muesca trasera
-    ctx.beginPath();
-    ctx.moveTo(20, 0); // nariz
-    ctx.lineTo(-12, -9); // ala izquierda
-    ctx.lineTo(-7, 0); // muesca trasera
-    ctx.lineTo(-12, 9); // ala derecha
-    ctx.closePath();
-    ctx.stroke();
-
-    // Llama del propulsor
-    if (this.thrusting && Math.random() > 0.35) {
-      ctx.beginPath();
-      ctx.moveTo(-8, -4);
-      ctx.lineTo(-8 - rand(6, 14), 0);
-      ctx.lineTo(-8, 4);
-      ctx.strokeStyle = "rgba(255, 130, 0, 0.85)";
-      ctx.stroke();
-    }
-
+    drawShipShape(getSelectedShipSkin(), this.thrusting);
     ctx.restore();
   }
+}
+
+function drawShield() {
+  if (ship.dead || shieldTimer <= 0) return;
+
+  const now = performance.now() / 1000;
+  const progress = Math.min(
+    1,
+    (now - shieldActivatedAt) / SHIELD_COLOR_TRANSITION_TIME,
+  );
+  const green = Math.round(255 * progress);
+  const alpha = 0.45 + (Math.sin(now * 8) + 1) * 0.25;
+  const pulse = 1 + Math.sin(now * 7) * 0.04;
+  const outerRadius = 31 * pulse;
+  const innerRadius = 14 * pulse;
+
+  ctx.save();
+  ctx.translate(ship.x, ship.y);
+  ctx.rotate(-Math.PI / 2);
+  ctx.strokeStyle = `rgba(255, ${green}, 0, ${alpha.toFixed(2)})`;
+  ctx.lineWidth = 2;
+  ctx.lineJoin = "round";
+  ctx.shadowColor = `rgb(255, ${green}, 0)`;
+  ctx.shadowBlur = 14;
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const angle = (i / 10) * Math.PI * 2;
+    const radius = i % 2 === 0 ? outerRadius : innerRadius;
+    const x = Math.cos(angle) * radius;
+    const y = Math.sin(angle) * radius;
+    if (i === 0) ctx.moveTo(x, y);
+    else ctx.lineTo(x, y);
+  }
+  ctx.closePath();
+  ctx.stroke();
+  ctx.restore();
 }
 
 // ── Partículas (explosión) ────────────────────────────────────────────────────
@@ -371,7 +481,8 @@ class Particle {
 
 // ── Estado del juego ──────────────────────────────────────────────────────────
 let ship, bullets, asteroids, shootingStars, powerUps, particles;
-let score, lives, level, speedBoostTimer, shootingStarSpawnTimer;
+let score, lives, level, speedBoostTimer, tripleShotTimer, shootingStarSpawnTimer;
+let shieldTimer, shieldMessage, shieldMessageTimer, shieldActivatedAt;
 let state; // 'playing' | 'dead' | 'gameover'
 let deadTimer;
 
@@ -413,6 +524,11 @@ function initGame() {
   lives = 3;
   level = 1;
   speedBoostTimer = 0;
+  tripleShotTimer = 0;
+  shieldTimer = 0;
+  shieldMessage = "";
+  shieldMessageTimer = 0;
+  shieldActivatedAt = 0;
   state = "playing";
   resetShootingStarTimer();
   spawnAsteroids(4);
@@ -433,10 +549,53 @@ function explode(x, y, count = 8) {
   for (let i = 0; i < count; i++) particles.push(new Particle(x, y));
 }
 
+function showShieldMessage(message) {
+  shieldMessage = message;
+  shieldMessageTimer = SHIELD_MESSAGE_TIME;
+}
+
+function activateShield() {
+  if (shieldTimer > 0) {
+    showShieldMessage("ESCUDO YA ACTIVO");
+    return;
+  }
+  if (score < SHIELD_COST) {
+    showShieldMessage("PUNTOS INSUFICIENTES");
+    return;
+  }
+
+  score -= SHIELD_COST;
+  shieldTimer = SHIELD_DURATION;
+  shieldActivatedAt = performance.now() / 1000;
+  showShieldMessage("ESCUDO ACTIVADO");
+}
+
+function destroyAsteroid(a) {
+  a.dead = true;
+  score += POINTS[a.size];
+  if (a.size === 3 && Math.random() < SPEED_POWERUP_DROP_CHANCE)
+    powerUps.push(new SpeedPowerUp(a.x, a.y));
+  explode(a.x, a.y, a.size * 5);
+  return a.split();
+}
+
+function destroyShootingStar(s) {
+  s.dead = true;
+  score += SHOOTING_STAR_POINTS;
+  tripleShotTimer += TRIPLE_SHOT_DURATION;
+  explode(s.x, s.y, 10);
+}
+
+function absorbHit() {
+  ship.invincible = Math.max(ship.invincible, SHIELD_INVINCIBLE_TIME);
+  showShieldMessage("ESCUDO ABSORBE IMPACTO");
+}
+
 function killShip() {
   explode(ship.x, ship.y, 14);
   ship.dead = true;
   speedBoostTimer = 0;
+  tripleShotTimer = 0;
   lives--;
   if (lives <= 0) {
     state = "gameover";
@@ -448,8 +607,11 @@ function killShip() {
 
 // ── Update ────────────────────────────────────────────────────────────────────
 function update(dt) {
+  if (pressed("KeyC")) cycleShipSkin();
+
   if (state === "gameover") {
     if (pressed("Space")) initGame();
+    consumePressed("KeyS");
     particles.forEach((p) => p.update(dt));
     particles = particles.filter((p) => !p.dead);
     return;
@@ -464,6 +626,7 @@ function update(dt) {
     shootingStars = shootingStars.filter((s) => !s.dead);
     powerUps.forEach((p) => p.update(dt));
     powerUps = powerUps.filter((p) => !p.dead);
+    consumePressed("KeyS");
     if (deadTimer <= 0) {
       state = "playing";
       ship.reset();
@@ -472,7 +635,18 @@ function update(dt) {
   }
 
   if (speedBoostTimer > 0) speedBoostTimer = Math.max(0, speedBoostTimer - dt);
+  if (tripleShotTimer > 0) tripleShotTimer = Math.max(0, tripleShotTimer - dt);
+  if (shieldTimer > 0) {
+    shieldTimer = Math.max(0, shieldTimer - dt);
+    if (shieldTimer <= 0) showShieldMessage("ESCUDO AGOTADO");
+  }
+  if (shieldMessageTimer > 0) {
+    shieldMessageTimer = Math.max(0, shieldMessageTimer - dt);
+    if (shieldMessageTimer <= 0) shieldMessage = "";
+  }
   updateShootingStarSpawn(dt);
+
+  if (pressed("KeyS")) activateShield();
 
   // Disparar
   if (pressed("Space")) {
@@ -497,26 +671,20 @@ function update(dt) {
     for (const a of asteroids) {
       if (!a.dead && !b.dead && dist(b, a) < a.radius) {
         b.dead = true;
-        a.dead = true;
-        score += POINTS[a.size];
-        if (a.size === 3 && Math.random() < SPEED_POWERUP_DROP_CHANCE)
-          powerUps.push(new SpeedPowerUp(a.x, a.y));
-        explode(a.x, a.y, a.size * 5);
-        newAsteroids.push(...a.split());
+        newAsteroids.push(...destroyAsteroid(a));
       }
     }
   }
   asteroids = asteroids.filter((a) => !a.dead).concat(newAsteroids);
   bullets = bullets.filter((b) => !b.dead);
+  newAsteroids.length = 0;
 
   // Bala vs estrella fugaz
   for (const b of bullets) {
     for (const s of shootingStars) {
       if (!s.dead && !b.dead && dist(b, s) < s.radius) {
         b.dead = true;
-        s.dead = true;
-        score += SHOOTING_STAR_POINTS;
-        explode(s.x, s.y, 10);
+        destroyShootingStar(s);
       }
     }
   }
@@ -536,16 +704,28 @@ function update(dt) {
   // Nave vs asteroide
   if (ship.invincible <= 0) {
     for (const a of asteroids) {
-      if (dist(ship, a) < ship.radius + a.radius * 0.82) {
-        killShip();
+      if (!a.dead && dist(ship, a) < ship.radius + a.radius * 0.82) {
+        if (shieldTimer > 0) {
+          newAsteroids.push(...destroyAsteroid(a));
+          absorbHit();
+          asteroids = asteroids.filter((a) => !a.dead).concat(newAsteroids);
+        } else {
+          killShip();
+        }
         break;
       }
     }
 
-    if (state === "playing") {
+    if (state === "playing" && ship.invincible <= 0) {
       for (const s of shootingStars) {
-        if (dist(ship, s) < ship.radius + s.radius) {
-          killShip();
+        if (!s.dead && dist(ship, s) < ship.radius + s.radius) {
+          if (shieldTimer > 0) {
+            destroyShootingStar(s);
+            absorbHit();
+            shootingStars = shootingStars.filter((s) => !s.dead);
+          } else {
+            killShip();
+          }
           break;
         }
       }
@@ -561,16 +741,7 @@ function drawLifeIcon(x, y) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(-Math.PI / 2);
-  ctx.strokeStyle = "#fff";
-  ctx.lineWidth = 1.2;
-  ctx.lineJoin = "round";
-  ctx.beginPath();
-  ctx.moveTo(9, 0);
-  ctx.lineTo(-6, -5);
-  ctx.lineTo(-3, 0);
-  ctx.lineTo(-6, 5);
-  ctx.closePath();
-  ctx.stroke();
+  drawShipShape(getSelectedShipSkin(), false, 0.48);
   ctx.restore();
 }
 
@@ -584,12 +755,42 @@ function drawHUD() {
   ctx.textAlign = "center";
   ctx.fillText(`NIVEL ${level}`, W / 2, 26);
 
+  ctx.fillStyle = getSelectedShipSkin().stroke;
+  ctx.textAlign = "right";
+  ctx.fillText(`SKIN: ${getSelectedShipSkin().name} [C]`, W - 14, 48);
+
   for (let i = 0; i < lives; i++) drawLifeIcon(W - 16 - i * 22, 18);
 
+  let statusY = 48;
   if (speedBoostTimer > 0) {
     ctx.textAlign = "left";
     ctx.fillStyle = "#38d9ff";
-    ctx.fillText(`VELOCIDAD x2  ${Math.ceil(speedBoostTimer)}s`, 14, 48);
+    ctx.fillText(`VELOCIDAD x2  ${Math.ceil(speedBoostTimer)}s`, 14, statusY);
+    statusY += 20;
+  }
+
+  if (tripleShotTimer > 0) {
+    ctx.textAlign = "left";
+    ctx.fillStyle = SHOOTING_STAR_COLOR;
+    ctx.fillText(`TRIPLE SHOT  ${Math.ceil(tripleShotTimer)}s`, 14, statusY);
+    statusY += 20;
+  }
+
+  if (shieldTimer > 0) {
+    ctx.textAlign = "left";
+    ctx.fillStyle = "#38d9ff";
+    ctx.fillText(`ESCUDO ${Math.ceil(shieldTimer)}s`, 14, statusY);
+  }
+
+  ctx.textAlign = "right";
+  ctx.fillStyle = shieldTimer > 0 ? "#38d9ff" : "rgba(255,255,255,0.65)";
+  ctx.fillText(`S: ESCUDO (${SHIELD_COST} PTS)`, W - 14, 70);
+
+  if (shieldMessage) {
+    ctx.textAlign = "center";
+    ctx.fillStyle =
+      shieldMessage === "PUNTOS INSUFICIENTES" ? "#ff6b6b" : "#38d9ff";
+    ctx.fillText(shieldMessage, W / 2, 54);
   }
 }
 
@@ -612,6 +813,7 @@ function draw() {
   shootingStars.forEach((s) => s.draw());
   powerUps.forEach((p) => p.draw());
   bullets.forEach((b) => b.draw());
+  drawShield();
   ship.draw();
 
   drawHUD();
