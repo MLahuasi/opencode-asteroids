@@ -49,5 +49,5 @@ Luego visita `http://localhost:3000`.
 - Power-up `velocidad`: puede caer al destruir asteroides grandes, desaparece tras 10 segundos y duplica la propulsión de la nave durante 5 segundos acumulables
 - Estrella fugaz: aparece periódicamente, cruza la pantalla a gran velocidad con forma de cometa amarillo, desaparece con el tiempo, otorga puntos y activa `triple shot` durante 5 segundos acumulables si la destruyes
 - `Triple shot`: dispara tres balas en distintas direcciones desde el centro, con una apertura de 30 grados a cada lado mientras el efecto está activo
-- Skins cosméticas de nave: cambia entre `CLASICA`, `DELTA` y `VIBORA` con la tecla `C`
+- Skins de nave: cambia entre `CLASICA`, `DELTA`, `VIBORA` y `MORADA` con la tecla `C`; la nave morada es el doble de grande y duplica los puntos obtenidos
 - Escudo manual: presiona `S` para gastar 1000 puntos y activar durante 45 segundos una protección que absorbe impactos con asteroides o estrellas fugaces; cada impacto destruye y puntúa el peligro absorbido
