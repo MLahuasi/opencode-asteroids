@@ -273,6 +273,8 @@ const SHIP_SKINS = [
     stroke: "#fff",
     fill: null,
     flame: "rgba(255, 130, 0, 0.85)",
+    scale: 1,
+    scoreMultiplier: 1,
     points: [[20, 0], [-12, -9], [-7, 0], [-12, 9]],
     details: [],
   },
@@ -281,6 +283,8 @@ const SHIP_SKINS = [
     stroke: "#38d9ff",
     fill: "rgba(56, 217, 255, 0.12)",
     flame: "rgba(120, 220, 255, 0.9)",
+    scale: 1,
+    scoreMultiplier: 1,
     points: [[22, 0], [-10, -12], [-4, 0], [-10, 12]],
     details: [[4, -4, -8, -8], [4, 4, -8, 8]],
   },
@@ -289,8 +293,20 @@ const SHIP_SKINS = [
     stroke: "#b2ff59",
     fill: "rgba(178, 255, 89, 0.1)",
     flame: "rgba(255, 214, 80, 0.9)",
+    scale: 1,
+    scoreMultiplier: 1,
     points: [[21, 0], [-3, -8], [-15, -5], [-8, 0], [-15, 5], [-3, 8]],
     details: [[8, 0, -6, 0], [-3, -8, -8, 0], [-3, 8, -8, 0]],
+  },
+  {
+    name: "MORADA",
+    stroke: "#d36bff",
+    fill: "rgba(211, 107, 255, 0.16)",
+    flame: "rgba(236, 155, 255, 0.95)",
+    scale: 2,
+    scoreMultiplier: 2,
+    points: [[20, 0], [-12, -9], [-7, 0], [-12, 9]],
+    details: [],
   },
 ];
 
@@ -302,6 +318,7 @@ function getSelectedShipSkin() {
 
 function cycleShipSkin() {
   selectedShipSkinIndex = (selectedShipSkinIndex + 1) % SHIP_SKINS.length;
+  if (ship) ship.radius = 12 * getSelectedShipSkin().scale;
 }
 
 function drawShipShape(skin, thrusting = false, scale = 1) {
@@ -351,7 +368,7 @@ class Ship {
     this.angle = -Math.PI / 2;
     this.vx = 0;
     this.vy = 0;
-    this.radius = 12;
+    this.radius = 12 * getSelectedShipSkin().scale;
     this.thrusting = false;
     this.invincible = 3;
     this.shootCooldown = 0;
@@ -385,7 +402,7 @@ class Ship {
   tryShoot() {
     if (this.shootCooldown > 0 || this.dead) return [];
     this.shootCooldown = 0.2;
-    const NOSE = 21;
+    const NOSE = 21 * getSelectedShipSkin().scale;
     const ox = this.x + Math.cos(this.angle) * NOSE;
     const oy = this.y + Math.sin(this.angle) * NOSE;
     if (tripleShotTimer <= 0) return [new Bullet(ox, oy, this.angle)];
@@ -406,7 +423,8 @@ class Ship {
     ctx.save();
     ctx.translate(this.x, this.y);
     ctx.rotate(this.angle);
-    drawShipShape(getSelectedShipSkin(), this.thrusting);
+    const skin = getSelectedShipSkin();
+    drawShipShape(skin, this.thrusting, skin.scale);
     ctx.restore();
   }
 }
@@ -572,7 +590,7 @@ function activateShield() {
 
 function destroyAsteroid(a) {
   a.dead = true;
-  score += POINTS[a.size];
+  score += POINTS[a.size] * getSelectedShipSkin().scoreMultiplier;
   if (a.size === 3 && Math.random() < SPEED_POWERUP_DROP_CHANCE)
     powerUps.push(new SpeedPowerUp(a.x, a.y));
   explode(a.x, a.y, a.size * 5);
@@ -581,7 +599,7 @@ function destroyAsteroid(a) {
 
 function destroyShootingStar(s) {
   s.dead = true;
-  score += SHOOTING_STAR_POINTS;
+  score += SHOOTING_STAR_POINTS * getSelectedShipSkin().scoreMultiplier;
   tripleShotTimer += TRIPLE_SHOT_DURATION;
   explode(s.x, s.y, 10);
 }
@@ -741,7 +759,8 @@ function drawLifeIcon(x, y) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(-Math.PI / 2);
-  drawShipShape(getSelectedShipSkin(), false, 0.48);
+  const skin = getSelectedShipSkin();
+  drawShipShape(skin, false, 0.48 * skin.scale);
   ctx.restore();
 }
 
