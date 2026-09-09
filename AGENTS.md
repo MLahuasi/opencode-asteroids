@@ -14,7 +14,7 @@
 
 ## Implementation Notes
 
-- Canvas dimensions are fixed in both `index.html` (`800x600`) and `game.js` (`W = 800`, `H = 600`); keep them in sync if resizing.
+- Canvas dimensions are fixed in both `index.html` (`1600x1200`) and `game.js` (`W = 1600`, `H = 1200`); keep them in sync if resizing.
 - Game state is intentionally centralized in top-level globals in `game.js` (`ship`, `bullets`, `asteroids`, `particles`, `score`, `lives`, `level`, `state`). Avoid introducing modules or build tooling unless explicitly requested.
 - The playfield wraps with `wrap(v, max)`; bullets and asteroids use toroidal movement, while particles do not wrap.
 - Asteroid sizes use parallel arrays `RADII`, `SPEEDS`, and `POINTS` indexed by size `1..3`; update all related arrays together when changing asteroid tiers.
