@@ -51,3 +51,12 @@ Luego visita `http://localhost:3000`.
 - `Triple shot`: dispara tres balas en distintas direcciones desde el centro, con una apertura de 30 grados a cada lado mientras el efecto está activo
 - Skins de nave: cambia entre `CLASICA`, `DELTA`, `VIBORA` y `MORADA` con la tecla `C`; la nave morada es el doble de grande y duplica los puntos obtenidos
 - Escudo manual: presiona `S` para gastar 1000 puntos y activar durante 45 segundos una protección que absorbe impactos con asteroides o estrellas fugaces; cada impacto destruye y puntúa el peligro absorbido
+
+## Automatizaciones de GitHub
+
+El repositorio incluye dos workflows para ayudar con la revisión y organización de cambios:
+
+- **Asistente de OpenCode** (`.github/workflows/opencode.yml`): se activa cuando alguien comenta en un issue o en una revisión de pull request usando `/oc` o `/opencode`. OpenCode analiza el contexto y puede responder solicitudes como explicar un problema, revisar una propuesta o sugerir una solución.
+- **Etiquetado automático de issues** (`.github/workflows/issue-labeler.yml`): se ejecuta al crear un nuevo issue. Lee el título y la descripción para clasificarlo con una etiqueta relevante, como `bug`, `enhancement`, `question`, `documentation` o `accessibility`. La automatización solo agrega la etiqueta y conserva la solicitud original del usuario.
+
+Ambos workflows utilizan OpenCode y requieren que el repositorio tenga configurado el secreto `OPENAI_API_KEY` en GitHub Actions. Para que el etiquetado pueda actualizar issues, también debe estar instalada la aplicación de GitHub de OpenCode en el repositorio. No es necesario configurar un secreto `GH_TOKEN`. La publicación y activación de estos workflows se realiza manualmente.
