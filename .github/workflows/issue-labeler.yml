@@ -46,7 +46,7 @@ jobs:
         env:
           APP_TOKEN: ${{ steps.auth.outputs.token }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENCODE_DISABLE_PROJECT_CONFIG: '1'
+          OPENCODE_DISABLE_PROJECT_CONFIG: "1"
           OPENCODE_PERMISSION: '{"read":"allow","glob":"allow","grep":"allow","list":"allow","edit":"deny","write":"deny","bash":"deny","task":"deny"}'
           ISSUE_NUMBER: ${{ github.event.issue.number }}
         run: |
@@ -110,11 +110,13 @@ jobs:
           fi
 
           printf '%s' "$result" | jq -e '
-            (.labels | type == "array") and
-            (.labels | length >= 1 and length <= 2) and
-            (.labels | all(. == "bug" or . == "enhancement" or . == "question" or . == "documentation")) and
-            (.labels | length == (unique | length)) and
-            (.body | type == "string" and length > 0)
+            select(
+              (.labels | type == "array") and
+              (.labels | length >= 1 and length <= 2) and
+              (.labels | all(. == "bug" or . == "enhancement" or . == "question" or . == "documentation")) and
+              (.labels | length == (unique | length)) and
+              (.body | type == "string" and length > 0)
+            )
           ' > "$RUNNER_TEMP/result.json"
 
       - name: Update Issue without changing its title
